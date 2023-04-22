@@ -15,7 +15,7 @@ class ReplayBuffer(object):
         self.rewards = np.zeros((max_size, 1))
         self.dones = np.zeros((max_size, 1))
 
-        self.device = torch.get_device()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     
     # 存入数据
