@@ -48,12 +48,12 @@ class DDPGModel(object):
         # 动作网络与目标动作网络
         self.actor = Actor(state_dim, action_dim, max_action)
         self.actor_target = copy.deepcopy(self.actor)
-        self.actor_optimizer = optim.AdamW(self.actor.parameters(), lr=1e-4, amsgrad=True)
+        self.actor_optimizer = optim.AdamW(self.actor.parameters(), lr=1e-4)
 
         # 值函数网络与目标值函数网络
         self.critic = Critic(state_dim, action_dim)
         self.critic_target = copy.deepcopy(self.critic)
-        self.critic_optimizer = optim.AdamW(self.critic.parameters(), weight_decay=1e-2, amsgrad=True)
+        self.critic_optimizer = optim.AdamW(self.critic.parameters(), weight_decay=1e-2)
 
         self.gamma = gamma
         self.tau = tau
@@ -62,7 +62,7 @@ class DDPGModel(object):
     # 根据当前状态，选择动作：过一个动作网络得到动作
     def select_action(self, state):
         state = torch.tensor(state.reshape(1, -1), dtype=torch.float32, device=device)
-        return self.actor(state).numpy().flatten()
+        return self.actor(state).detach().numpy().flatten()
 
     
     # 训练函数
@@ -82,7 +82,7 @@ class DDPGModel(object):
         # print(critic_loss)
 
         # 梯度回传，优化网络参数
-        self.critic_optimizer.clear_grad()
+        self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
 
@@ -91,15 +91,15 @@ class DDPGModel(object):
         # print(actor_loss)
 
         # 梯度回传，优化网络参数
-        self.actor_optimizer.clear_grad()
+        self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
 
         # 更新目标网络参数
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-            target_param.set_value(target_param * (1.0 - self.tau) + param * self.tau)
+            target_param = target_param * (1.0 - self.tau) + param * self.tau
         for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
-            target_param.set_value(target_param * (1.0 - self.tau) + param * self.tau)
+            target_param = target_param * (1.0 - self.tau) + param * self.tau
         
 
     # 保存模型参数    
