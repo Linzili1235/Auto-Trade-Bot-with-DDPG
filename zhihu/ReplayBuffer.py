@@ -37,11 +37,11 @@ class ReplayBuffer(object):
 
         # 返回paddle张量
         return (
-            torch.to_tensor(self.states[ids], dtype='float32', place=self.device),
-            torch.to_tensor(self.actions[ids], dtype='float32', place=self.device),
-            torch.to_tensor(self.next_states[ids], dtype='float32', place=self.device),
-            torch.to_tensor(self.rewards[ids], dtype='float32', place=self.device),
-            torch.to_tensor(self.dones[ids], dtype='float32', place=self.device)
+            torch.tensor(self.states[ids], dtype='float32', device=self.device),
+            torch.tensor(self.actions[ids], dtype='float32', device=self.device),
+            torch.tensor(self.next_states[ids], dtype='float32', device=self.device),
+            torch.tensor(self.rewards[ids], dtype='float32', device=self.device),
+            torch.tensor(self.dones[ids], dtype='float32', device=self.device)
         )
 
     
