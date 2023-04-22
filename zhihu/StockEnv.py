@@ -2,8 +2,8 @@ import random
 
 import numpy as np
 
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 
 # 默认的一些数据，用于归一化属性值
 MAX_ACCOUNT_BALANCE = 214748        # 组大的账户财产

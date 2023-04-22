@@ -1,5 +1,5 @@
 import numpy as np
-import paddle
+import torch
 
 
 # 缓存容器：内容为{obs, act, obs_, reward, done}五元组
@@ -15,7 +15,7 @@ class ReplayBuffer(object):
         self.rewards = np.zeros((max_size, 1))
         self.dones = np.zeros((max_size, 1))
 
-        self.device = paddle.get_device()
+        self.device = torch.get_device()
 
     
     # 存入数据
@@ -37,11 +37,11 @@ class ReplayBuffer(object):
 
         # 返回paddle张量
         return (
-            paddle.to_tensor(self.states[ids], dtype='float32', place=self.device),
-            paddle.to_tensor(self.actions[ids], dtype='float32', place=self.device),
-            paddle.to_tensor(self.next_states[ids], dtype='float32', place=self.device),
-            paddle.to_tensor(self.rewards[ids], dtype='float32', place=self.device),
-            paddle.to_tensor(self.dones[ids], dtype='float32', place=self.device)
+            torch.to_tensor(self.states[ids], dtype='float32', place=self.device),
+            torch.to_tensor(self.actions[ids], dtype='float32', place=self.device),
+            torch.to_tensor(self.next_states[ids], dtype='float32', place=self.device),
+            torch.to_tensor(self.rewards[ids], dtype='float32', place=self.device),
+            torch.to_tensor(self.dones[ids], dtype='float32', place=self.device)
         )
 
     

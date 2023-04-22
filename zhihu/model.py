@@ -1,11 +1,11 @@
-import paddle
-import paddle.nn as nn
-import paddle.optimizer as optim
-import paddle.nn.functional as F
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
 import copy
 
 # 是否使用GPU
-device = paddle.get_device()
+device = device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # 动作网络：输出连续的动作信号
@@ -37,7 +37,7 @@ class Critic(nn.Layer):
         self.l3 = nn.Linear(300, 1)
 
     def forward(self, state, action):
-        q = F.relu(self.l1(paddle.concat([state, action], 1)))
+        q = F.relu(self.l1(torch.concat([state, action], 1)))
         q = F.relu(self.l2(q))
         return self.l3(q)
 
@@ -61,7 +61,7 @@ class DDPGModel(object):
 
     # 根据当前状态，选择动作：过一个动作网络得到动作
     def select_action(self, state):
-        state = paddle.to_tensor(state.reshape(1, -1), dtype='float32', place=device)
+        state = torch.to_tensor(state.reshape(1, -1), dtype='float32', place=device)
         return self.actor(state).numpy().flatten()
 
     
@@ -104,21 +104,21 @@ class DDPGModel(object):
 
     # 保存模型参数    
     def save(self, filename):
-        paddle.save(self.critic.state_dict(), filename + '_critic')
-        paddle.save(self.critic_optimizer.state_dict(), filename + '_critic_optimizer')
+        torch.save(self.critic.state_dict(), filename + '_critic')
+        torch.save(self.critic_optimizer.state_dict(), filename + '_critic_optimizer')
 
-        paddle.save(self.actor.state_dict(), filename + '_actor')
-        paddle.save(self.actor_optimizer.state_dict(), filename + '_actor_optimizer')
+        torch.save(self.actor.state_dict(), filename + '_actor')
+        torch.save(self.actor_optimizer.state_dict(), filename + '_actor_optimizer')
         
 
     # 导入模型参数
     def load(self, filename):
-        self.critic.set_state_dict(paddle.load(filename + '_critic'))
-        self.critic_optimizer.set_state_dict(paddle.load(filename + '_critic_optimizer'))
+        self.critic.set_state_dict(torch.load(filename + '_critic'))
+        self.critic_optimizer.set_state_dict(torch.load(filename + '_critic_optimizer'))
         self.critic_target = copy.deepcopy(self.critic)
 
-        self.actor.set_state_dict(paddle.load(filename + '_actor'))
-        self.actor_optimizer.set_state_dict(paddle.load(filename + '_actor_optimizer'))
+        self.actor.set_state_dict(torch.load(filename + '_actor'))
+        self.actor_optimizer.set_state_dict(torch.load(filename + '_actor_optimizer'))
         self.actor_target = copy.deepcopy(self.actor)
 
         
