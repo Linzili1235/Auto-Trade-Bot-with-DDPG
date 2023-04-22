@@ -9,7 +9,7 @@ device = device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # 动作网络：输出连续的动作信号
-class Actor(nn.Layer):
+class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, max_action):
         super(Actor, self).__init__()
 
@@ -28,7 +28,7 @@ class Actor(nn.Layer):
 
 
 # 值函数网络：评价一个动作的价值
-class Critic(nn.Layer):
+class Critic(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(Critic, self).__init__()
         
@@ -48,12 +48,12 @@ class DDPGModel(object):
         # 动作网络与目标动作网络
         self.actor = Actor(state_dim, action_dim, max_action)
         self.actor_target = copy.deepcopy(self.actor)
-        self.actor_optimizer = optim.Adam(parameters=self.actor.parameters(), learning_rate=1e-4)
+        self.actor_optimizer = optim.AdamW(self.actor.parameters(), learning_rate=1e-4, amsgrad=True)
 
         # 值函数网络与目标值函数网络
         self.critic = Critic(state_dim, action_dim)
         self.critic_target = copy.deepcopy(self.critic)
-        self.critic_optimizer = optim.Adam(parameters=self.critic.parameters(), weight_decay=1e-2)
+        self.critic_optimizer = optim.AdamW(self.critic.parameters(), weight_decay=1e-2, amsgrad=True)
 
         self.gamma = gamma
         self.tau = tau
