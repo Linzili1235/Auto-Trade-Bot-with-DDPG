@@ -48,7 +48,7 @@ class DDPGModel(object):
         # 动作网络与目标动作网络
         self.actor = Actor(state_dim, action_dim, max_action)
         self.actor_target = copy.deepcopy(self.actor)
-        self.actor_optimizer = optim.AdamW(self.actor.parameters(), learning_rate=1e-4, amsgrad=True)
+        self.actor_optimizer = optim.AdamW(self.actor.parameters(), lr=1e-4, amsgrad=True)
 
         # 值函数网络与目标值函数网络
         self.critic = Critic(state_dim, action_dim)
