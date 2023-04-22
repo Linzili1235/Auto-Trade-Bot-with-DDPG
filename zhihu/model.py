@@ -61,7 +61,7 @@ class DDPGModel(object):
 
     # 根据当前状态，选择动作：过一个动作网络得到动作
     def select_action(self, state):
-        state = torch.to_tensor(state.reshape(1, -1), dtype='float32', place=device)
+        state = torch.tensor(state.reshape(1, -1), dtype=torch.float32, device=device)
         return self.actor(state).numpy().flatten()
 
     
