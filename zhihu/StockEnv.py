@@ -6,7 +6,7 @@ import gymnasium as gym
 from gymnasium import spaces
 
 # 默认的一些数据，用于归一化属性值
-MAX_ACCOUNT_BALANCE = 214748        # 组大的账户财产
+MAX_ACCOUNT_BALANCE = 214748        # 最大的账户财产
 MAX_NUM_SHARES = 214748             # 最大的手数
 MAX_SHARE_PRICE = 5000              # 最大的单手价格
 MAX_VOLUME = 1000e6                 # 最大的成交量
@@ -23,19 +23,32 @@ class StockTradingEnv(gym.Env):
     """A stock trading environment for OpenAI gym"""
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, df):
+    def __init__(self,
+              df, 
+            stock_dim,
+                 tech_indicator_list，
+                 buy_cost_pct=1e-3,
+                 sell_cost_pct=1e-3):
         super(StockTradingEnv, self).__init__()
 
         self.df = df
         self.reward_range = (0, MAX_ACCOUNT_BALANCE)
+        self.action_dim = stock_dim
+        # balance + (adj.closeprice,share) * stock_dim + tech_index_dim * stock_dim
+        self.state_dim = 1 + 2 * stock_dim + len(tech_indicator_list) * stock_dim
 
-        # 动作的可能情况：买入x%, 卖出x%, 观望
+        self.buy_cost_pct = buy_cost_pct
+        self.sell_cost_pct = sell_cost_pct
+
+        # action: -1:sell, 1:buy, 0:hold
+        # action shape: num of stocks
         self.action_space = spaces.Box(
-            low=np.array([-3, 0]), high=np.array([3, 1]), dtype=np.float32)
+            low=-1, high=1, shape=(self.action_dim,), dtype=np.float32
+        )
 
-        # 环境状态的维度
+        # state space dim: 
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(19,), dtype=np.float32)
+            low=-3000, high=3000, shape=(self.state_dim,), dtype=np.float32)
 
     
     def seed(self, seed):
