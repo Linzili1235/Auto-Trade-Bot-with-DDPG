@@ -35,7 +35,6 @@ class ReplayBuffer(object):
     def sample(self, batch):
         ids = np.random.randint(0, self.size, size=batch)
 
-        # 返回paddle张量
         return (
             torch.tensor(self.states[ids], dtype=torch.float32, device=self.device),
             torch.tensor(self.actions[ids], dtype=torch.float32, device=self.device),

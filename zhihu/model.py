@@ -61,8 +61,10 @@ class DDPGModel(object):
 
     # 根据当前状态，选择动作：过一个动作网络得到动作
     def select_action(self, state):
-        state = torch.tensor(state.reshape(1, -1), dtype=torch.float32, device=device)
-        return self.actor(state).detach().numpy().flatten()
+        
+        with torch.no_grad():
+            state = torch.tensor(state.reshape(1, -1), dtype=torch.float32, device=device)
+            return self.actor(state).numpy().flatten()
 
     
     # 训练函数
@@ -71,14 +73,15 @@ class DDPGModel(object):
         state, action, next_state, reward, done = replay_buffer.sample(batch)
 
         # 计算目标网络q值
-        q_target = self.critic_target(next_state, self.actor_target(next_state))
-        q_target = reward + ((1- done) * self.gamma * q_target).detach()
+        q_target = self.critic_target(next_state, self.actor_target(next_state).detach())
+        q_target = reward + ((1- done) * self.gamma * q_target)
+
 
         # 计算当前网络q值
         q_eval = self.critic(state, action)
 
         # 计算值网络的损失函数
-        critic_loss = F.mse_loss(q_eval, q_target)
+        critic_loss = nn.MSELoss()(q_eval, q_target)
         # print(critic_loss)
 
         # 梯度回传，优化网络参数
@@ -97,9 +100,11 @@ class DDPGModel(object):
 
         # 更新目标网络参数
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-            target_param = target_param * (1.0 - self.tau) + param * self.tau
+            print('Old:', target_param)
+            target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
+            print('New:', target_param)
         for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
-            target_param = target_param * (1.0 - self.tau) + param * self.tau
+            target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
         
 
     # 保存模型参数    
