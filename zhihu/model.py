@@ -48,7 +48,7 @@ class DDPGModel(object):
         # 动作网络与目标动作网络
         self.actor = Actor(state_dim, action_dim, max_action)
         self.actor_target = copy.deepcopy(self.actor)
-        self.actor_optimizer = optim.AdamW(self.actor.parameters(), lr=1e-3)
+        self.actor_optimizer = optim.AdamW(self.actor.parameters(), lr=1e-4)
 
         # 值函数网络与目标值函数网络
         self.critic = Critic(state_dim, action_dim)
@@ -66,7 +66,7 @@ class DDPGModel(object):
             state = torch.tensor(state, dtype=torch.float32, device=device)
             return self.actor(state).numpy().flatten()
 
-    
+
     # 训练函数
     def train(self, replay_buffer, batch=64):
         # 从缓存容器中采样
@@ -97,15 +97,46 @@ class DDPGModel(object):
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
-
-        # 更新目标网络参数
-        for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-            # print('Old:', target_param)
-            target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
-            # print('New:', target_param)
-        for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
-            target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
+            
+           
+        # GET THE CURRENT WEIGHTS OF EACH NETWORK
+        critic_target_state_dict = self.critic_target.state_dict()
+        critic_state_dict = self.critic.state_dict()
         
+        # CALCULATE SOFT UPDATE OF TARGET NET WEIGHTS
+        # θ′ ← τ θ + (1 −τ )θ′
+        for key in critic_state_dict:
+            critic_target_state_dict[key] = critic_state_dict[key]*self.tau + critic_target_state_dict[key]*(1-self.tau)
+        
+        # APPLY THE UPDATE TO THE TARGET NETWORK
+        self.critic_target.load_state_dict(critic_target_state_dict)
+
+
+        # GET THE CURRENT WEIGHTS OF EACH NETWORK
+        actor_target_state_dict = self.actor_target.state_dict()
+        actor_state_dict = self.actor.state_dict()
+        
+        # CALCULATE SOFT UPDATE OF TARGET NET WEIGHTS
+        # θ′ ← τ θ + (1 −τ )θ′
+        for key in actor_state_dict:
+            actor_target_state_dict[key] = actor_state_dict[key]*self.tau + actor_target_state_dict[key]*(1-self.tau)
+        
+        # APPLY THE UPDATE TO THE TARGET NETWORK
+        self.actor_target.load_state_dict(actor_target_state_dict)
+
+
+        # for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
+        #     print('Old Target:', target_param[0][0])
+        #     print('Old param:', param[0][0])
+        #     print('Tau:', self.tau)
+        #     target_param.data.copy_(param * self.tau)
+        #     # target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
+        #     print('New Target:', self.critic_target.parameters()[0][0][0])
+        # for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
+        #     target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
+
+
+
 
     # 保存模型参数    
     def save(self, filename):
