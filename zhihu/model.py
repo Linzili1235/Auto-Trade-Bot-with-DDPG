@@ -44,11 +44,11 @@ class Critic(nn.Module):
 
 # DDPG算法模型    
 class DDPGModel(object):
-    def __init__(self, state_dim, action_dim, max_action, gamma = 0.99, tau = 0.001):
+    def __init__(self, state_dim, action_dim, max_action, gamma = 0.99, tau = 0.005):
         # 动作网络与目标动作网络
         self.actor = Actor(state_dim, action_dim, max_action)
         self.actor_target = copy.deepcopy(self.actor)
-        self.actor_optimizer = optim.AdamW(self.actor.parameters(), lr=1e-4)
+        self.actor_optimizer = optim.AdamW(self.actor.parameters(), lr=1e-3)
 
         # 值函数网络与目标值函数网络
         self.critic = Critic(state_dim, action_dim)
@@ -63,7 +63,7 @@ class DDPGModel(object):
     def select_action(self, state):
         
         with torch.no_grad():
-            state = torch.tensor(state.reshape(1, -1), dtype=torch.float32, device=device)
+            state = torch.tensor(state, dtype=torch.float32, device=device)
             return self.actor(state).numpy().flatten()
 
     
@@ -100,9 +100,9 @@ class DDPGModel(object):
 
         # 更新目标网络参数
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-            print('Old:', target_param)
+            # print('Old:', target_param)
             target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
-            print('New:', target_param)
+            # print('New:', target_param)
         for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
             target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
         
@@ -118,12 +118,12 @@ class DDPGModel(object):
 
     # 导入模型参数
     def load(self, filename):
-        self.critic.set_state_dict(torch.load(filename + '_critic'))
-        self.critic_optimizer.set_state_dict(torch.load(filename + '_critic_optimizer'))
+        self.critic.load_state_dict(torch.load(filename + '_critic'))
+        self.critic_optimizer.load_state_dict(torch.load(filename + '_critic_optimizer'))
         self.critic_target = copy.deepcopy(self.critic)
 
-        self.actor.set_state_dict(torch.load(filename + '_actor'))
-        self.actor_optimizer.set_state_dict(torch.load(filename + '_actor_optimizer'))
+        self.actor.load_state_dict(torch.load(filename + '_actor'))
+        self.actor_optimizer.load_state_dict(torch.load(filename + '_actor_optimizer'))
         self.actor_target = copy.deepcopy(self.actor)
 
         
