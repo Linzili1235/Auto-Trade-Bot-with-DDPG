@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 
-# 缓存容器：内容为{obs, act, obs_, reward, done}五元组
+# REPLAY BUFFER:{obs, act, obs_, reward, done}
 class ReplayBuffer(object):
     def __init__(self, state_dim, action_dim, max_size=int(1e4)):
         self.max_size = max_size
@@ -18,7 +18,7 @@ class ReplayBuffer(object):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     
-    # 存入数据
+    # STORE THE DATA
     def add(self, state, action, next_state, reward, done):
         self.states[self.cur] = state
         self.actions[self.cur] = action
@@ -26,12 +26,12 @@ class ReplayBuffer(object):
         self.rewards[self.cur] = reward
         self.dones[self.cur] = done
 
-        # 指针移动
+        # MOVE THE CUR
         self.cur = (self.cur + 1) % self.max_size
         self.size = min(self.size + 1, self.max_size)
 
     
-    # 采样
+    # SAMPLING
     def sample(self, batch):
         ids = np.random.randint(0, self.size, size=batch)
 

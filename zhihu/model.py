@@ -4,11 +4,11 @@ import torch.optim as optim
 import torch.nn.functional as F
 import copy
 
-# 是否使用GPU
-device = device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# WHETHER USE GPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-# 动作网络：输出连续的动作信号
+# ACTOR NETWORK: CONTINUOUS ACTION
 class Actor(nn.Module):
     def __init__(self, state_dim, action_dim, max_action):
         super(Actor, self).__init__()
@@ -23,11 +23,10 @@ class Actor(nn.Module):
     def forward(self, state):
         a = F.relu(self.l1(state))
         a = F.relu(self.l2(a))
-        # 输出层激活函数采用tanh，将输出映射至[-1,1]
-        return F.tanh(self.l3(a))
+        return F.tanh(self.l3(a)) # USE TANH AS ACTIVATION FUNCTION TO MAP THE DATE INTO [-1, 1]
 
 
-# 值函数网络：评价一个动作的价值
+# CRITIC NETWORK: CRITISIZE THE VALUE OF AN ACTION
 class Critic(nn.Module):
     def __init__(self, state_dim, action_dim):
         super(Critic, self).__init__()
@@ -42,15 +41,15 @@ class Critic(nn.Module):
         return self.l3(q)
 
 
-# DDPG算法模型    
+# DDPG MODEL   
 class DDPGModel(object):
     def __init__(self, state_dim, action_dim, max_action, gamma = 0.99, tau = 0.005):
-        # 动作网络与目标动作网络
+        # ACTOR AND TARGET ACTOR NETWORK
         self.actor = Actor(state_dim, action_dim, max_action)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = optim.AdamW(self.actor.parameters(), lr=1e-4)
 
-        # 值函数网络与目标值函数网络
+        # CRITIC AND TARGET CRITIC NETWORK
         self.critic = Critic(state_dim, action_dim)
         self.critic_target = copy.deepcopy(self.critic)
         self.critic_optimizer = optim.AdamW(self.critic.parameters(), weight_decay=1e-2)
@@ -59,7 +58,7 @@ class DDPGModel(object):
         self.tau = tau
 
 
-    # 根据当前状态，选择动作：过一个动作网络得到动作
+    # SELECT AN ACTION BASED ON THE CURRENT STATE
     def select_action(self, state):
         
         with torch.no_grad():
@@ -67,37 +66,36 @@ class DDPGModel(object):
             return self.actor(state).numpy().flatten()
 
 
-    # 训练函数
+    # TRAIN THE NETWORK
     def train(self, replay_buffer, batch=64):
-        # 从缓存容器中采样
+        # SAMPLE FROM THE REPLAY BUFFER
         state, action, next_state, reward, done = replay_buffer.sample(batch)
 
-        # 计算目标网络q值
+        # COMPUTE THE Q VALUE FROM TARGET NETWORK
         q_target = self.critic_target(next_state, self.actor_target(next_state).detach())
         q_target = reward + ((1- done) * self.gamma * q_target)
 
-
-        # 计算当前网络q值
+        # COMPUTE THE Q VALUE FROM CRITIC NETWORK
         q_eval = self.critic(state, action)
 
-        # 计算值网络的损失函数
+        # COMPUTE THE LOSS FROM CRITIC NETWORK
         critic_loss = nn.MSELoss()(q_eval, q_target)
         # print(critic_loss)
 
-        # 梯度回传，优化网络参数
+        # UPDATE THE PARAMETERS
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
 
-        # 计算动作网络的损失函数
+        # COMPUTE THE LOSS FROM CRITIC NETWORK
         actor_loss = -self.critic(state, self.actor(state)).mean()
         # print(actor_loss)
 
-        # 梯度回传，优化网络参数
+        # UPDATE THE PARAMETERS
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
-            
+        
            
         # GET THE CURRENT WEIGHTS OF EACH NETWORK
         critic_target_state_dict = self.critic_target.state_dict()
@@ -126,19 +124,14 @@ class DDPGModel(object):
 
 
         # for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-        #     print('Old Target:', target_param[0][0])
-        #     print('Old param:', param[0][0])
-        #     print('Tau:', self.tau)
-        #     target_param.data.copy_(param * self.tau)
-        #     # target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
-        #     print('New Target:', self.critic_target.parameters()[0][0][0])
+        #     target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
         # for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
         #     target_param.data.copy_(target_param * (1.0 - self.tau) + param * self.tau)
 
 
 
 
-    # 保存模型参数    
+    # SAVE THE MODEL PARAMETERS   
     def save(self, filename):
         torch.save(self.critic.state_dict(), filename + '_critic')
         torch.save(self.critic_optimizer.state_dict(), filename + '_critic_optimizer')
@@ -147,7 +140,7 @@ class DDPGModel(object):
         torch.save(self.actor_optimizer.state_dict(), filename + '_actor_optimizer')
         
 
-    # 导入模型参数
+    # LOAD THE MODEL PARAMETERS
     def load(self, filename):
         self.critic.load_state_dict(torch.load(filename + '_critic'))
         self.critic_optimizer.load_state_dict(torch.load(filename + '_critic_optimizer'))
