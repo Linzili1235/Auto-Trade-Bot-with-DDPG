@@ -20,9 +20,11 @@ class StockTradingEnv(gym.Env):
                  df,
                  stock_dim, 
                  hmax,
+                 balance_scaling, #1m
+                 shares_scaling, #5000
                  buy_cost_pct=1e-3,
                  sell_cost_pct=1e-3,
-                 reward_scaling=2**-11,
+                 reward_scaling=80000, # 2 stock, 200 per average, each 100 buy per day, 2* 200*2*100                
                  initial_amount=None,
                  initial=True,
                  print_verbosity=10):
@@ -35,13 +37,25 @@ class StockTradingEnv(gym.Env):
 
 
         self.df = df
+        self.stock_no_date_df = self.df.iloc[:,:25] # stock data before normalization
+        self.stock_df = self.df.iloc[:,:25]
+        self.stock_df['date'] = self.df['date']
+
+        self.stock_norm_df = self.df.iloc[:, 25:] # stockdata after normalization
+        self.stock_norm_no_date_df = self.stock_norm_df.iloc[:,:25]
+
         self.date_array = self.df.date.unique().tolist()
         self.stock_dim = stock_dim
         self.hmax = hmax
+        self.balance_scaling = balance_scaling
+        self.shares_scaling = shares_scaling
+        self.reward_scaling = reward_scaling
+
 
         # data at current day
         self.day = 0
-        self.data = self.df.loc[self.df["date"] == self.date_array[self.day], :]
+        self.data = self.stock_no_date_df.loc[self.stock_df["date"] == self.date_array[self.day], :]
+        self.data_norm = self.stock_norm_no_date_df.loc[self.stock_norm_df["date"] == self.date_array[self.day], :]
         self.num_stock_shares = [0] * self.stock_dim
 
         self.initial_amount = initial_amount
@@ -53,7 +67,6 @@ class StockTradingEnv(gym.Env):
 
         self.buy_cost_pct = buy_cost_pct
         self.sell_cost_pct = sell_cost_pct
-        self.reward_scaling = reward_scaling
 
         # action: (-k, k)
         # action shape: num of stocks
@@ -67,7 +80,7 @@ class StockTradingEnv(gym.Env):
 
         # reset
         self.initial = initial
-        self.state = self._initiate_state()
+        self.state, self.state_norm = self._initiate_state()
         
         # initiate
         self.reward = 0
@@ -77,18 +90,12 @@ class StockTradingEnv(gym.Env):
 
         # reward everyday
         self.rewards_memory = []
-        # action everyday
-        self.actions_memory = []
-        # state
-        self.state_memory = []
+        # # action everyday
+        # self.actions_memory = []
+        # # state
+        # self.state_memory = []
         # date 
         self.date_memory = [self.date_array[self.day]] # initiate date to first day
-
-
-        
-
-
-        
 
         
     def seed(self, seed):
@@ -99,28 +106,29 @@ class StockTradingEnv(gym.Env):
         """
         index: which stock
         """
-            
-        if self.state[index + 1] > 0: 
-            # Sell only if the price is > 0 (no missing data in this particular date)
-            # perform sell action based on the sign of the action
-            if self.state[index + self.stock_dim + 1] > 0:
-                # print(f"Num shares before: {self.state[index+self.stock_dim+1]}")
+        # check close price
+        close_list = self.data.close_1.values.tolist()
+        # if close price > 0
+        if close_list[index] > 0: 
+            # check num of shares
+            if self.state[1 + 25 * self.stock_dim + index] > 0:
+                # print(f"Num shares before: {self.state[1 + 25 * self.stock_dim + index]}")
 
                 # Sell only if current asset is > 0
                 sell_num_shares = min(
-                    abs(action), self.state[index + self.stock_dim + 1]
+                    abs(action), self.state[1 + 25 * self.stock_dim + index]
                 )
                 sell_amount = (
-                    self.state[index + 1]
+                    close_list[index]
                     * sell_num_shares
                     * (1 - self.sell_cost_pct)
                 )
                 # update balance
                 self.state[0] += sell_amount
 
-                self.state[index + self.stock_dim + 1] -= sell_num_shares
+                self.state[1 + 25 * self.stock_dim + index] -= sell_num_shares
                 self.cost += (
-                    self.state[index + 1]
+                    close_list[index]
                     * sell_num_shares
                     * self.sell_cost_pct
                 )
@@ -134,29 +142,30 @@ class StockTradingEnv(gym.Env):
 
 
     def _buy_stock(self, index, action):
-        # if (
-        #     self.state[index + 2 * self.stock_dim + 1] != True
-        # ):  # check if the stock is able to buy
-        if self.state[index + 1] >0:
+
+        # check close price
+        close_list = self.data.close_1.values.tolist()
+        # if close price > 0
+        if close_list[index] > 0:
             # Buy only if the price is > 0 (no missing data in this particular date)
             available_amount = self.state[0] // (
-                self.state[index + 1] * (1 + self.buy_cost_pct)
+                close_list[index] * (1 + self.buy_cost_pct)
             )  # when buying stocks, we should consider the cost of trading when calculating available_amount, or we may be have cash<0
             # print('available_amount:{}'.format(available_amount))
 
             # update balance
             buy_num_shares = min(available_amount, action)
             buy_amount = (
-                self.state[index + 1]
+                close_list[index]
                 * buy_num_shares
                 * (1 + self.buy_cost_pct)
             )
             self.state[0] -= buy_amount
 
-            self.state[index + self.stock_dim + 1] += buy_num_shares
+            self.state[1 + 25 * self.stock_dim + index] += buy_num_shares
 
             self.cost += (
-                self.state[index + 1] * buy_num_shares * self.buy_cost_pct
+                close_list[index] * buy_num_shares * self.buy_cost_pct
             )
             self.trades += 1
         else:
@@ -169,10 +178,9 @@ class StockTradingEnv(gym.Env):
         self.terminal = self.day >= len(self.df.date.unique()) - 1
 
         if self.terminal:
-            data_temp = self.df.loc[self.df["date"] == self.date_array[self.day], :]
             
             end_total_asset = self.state[0] + sum( #cash amount, not include capital, initial_amount is only cash part of our initial asset
-                np.array(data_temp.close_1.values.tolist()) # close price per stock
+                np.array(self.data.close_1.values.tolist()) # close price per stock
                 * np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)]) # hold share per stock
             )
             df_total_value = pd.DataFrame(self.asset_memory) 
@@ -184,12 +192,7 @@ class StockTradingEnv(gym.Env):
             df_total_value.columns = ["account_value"]
             df_total_value["date"] = self.date_memory
             df_total_value["daily_return"] = df_total_value["account_value"].pct_change(1) # pct change with time difference = 1
-            # if df_total_value["daily_return"].std() != 0:
-            #     sharpe = (
-            #         (252**0.5)
-            #         * df_total_value["daily_return"].mean()
-            #         / df_total_value["daily_return"].std()
-            #     )
+            
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
             df_rewards["date"] = self.date_memory[:-1]
@@ -200,16 +203,15 @@ class StockTradingEnv(gym.Env):
                 print(f"total_reward: {tot_reward:0.2f}")
                 print(f"total_cost: {self.cost:0.2f}")
                 print(f"total_trades: {self.trades}")
-                # if df_total_value["daily_return"].std() != 0:
-                #     print(f"Sharpe: {sharpe:0.3f}")
+                
                 print("=================================")
 
-                df_actions = self.save_action_memory()
-                df_actions.to_csv(
-                        "results/actions_{}.csv".format(
-                            self.episode               
-                            )
-                    )
+                # df_actions = self.save_action_memory()
+                # df_actions.to_csv(
+                #         "results/actions_{}.csv".format(
+                #             self.episode               
+                #             )
+                #     )
                 df_total_value.to_csv(
                         "results/account_value_{}.csv".format(
                             self.episode
@@ -232,18 +234,20 @@ class StockTradingEnv(gym.Env):
 
 
             
-            return self.state, self.reward, self.terminal, {}
+            return self.state_norm, self.reward, self.terminal, {}
 
         else:
+
             actions = actions * self.hmax  # actions initially is scaled between 0 to 1 , action of each stock
             actions = actions.astype(
                 int
             )  # convert into integer because we can't by fraction of shares
-            
-            begin_total_asset = self.state[0] + sum(
-                np.array(self.state[1 : (self.stock_dim + 1)])
-                * np.array(self.state[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
+
+            begin_total_asset = self.state[0] + sum( #cash amount, not include capital, initial_amount is only cash part of our initial asset
+                np.array(self.data.close_1.values.tolist()) # close price per stock
+                * np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)]) # hold share per stock
             )
+            
             # print("begin_total_asset:{}".format(begin_total_asset))
 
             argsort_actions = np.argsort(actions) # index of ascending value
@@ -265,82 +269,113 @@ class StockTradingEnv(gym.Env):
 
             # state: s -> s+1
             self.day += 1
-            self.data = self.df.loc[self.df["date"] == self.date_array[self.day], :]
+            self.data = self.stock_no_date_df.loc[self.stock_df["date"] == self.date_array[self.day], :]
+            self.data_norm = self.stock_norm_no_date_df.loc[self.stock_norm_df["date"] == self.date_array[self.day], :]
             
-            self.state = self._update_state()
+            self.state, self.state_norm = self._update_state()
 
-            end_total_asset = self.state[0] + sum(
-                np.array(self.state[1 : (self.stock_dim + 1)])
-                * np.array(self.state[(self.stock_dim + 1) : (self.stock_dim * 2 + 1)])
+            end_total_asset = self.state[0] + sum( #cash amount, not include capital, initial_amount is only cash part of our initial asset
+                np.array(self.data.close_1.values.tolist()) # close price per stock
+                * np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)]) # hold share per stock
             )
             self.asset_memory.append(end_total_asset)
             self.date_memory.append(self.date_array[self.day])
+            # TODO: rewards
             self.reward = end_total_asset - begin_total_asset
             self.rewards_memory.append(self.reward)
+            if self.reward == 0: #add penalty for not entering the market
+                self.reward -= 5
+            
             self.reward = self.reward * self.reward_scaling
-            self.state_memory.append(
-                self.state
-            )  # add current state in state_recorder for each day
+            # self.state_memory.append(
+            #     self.state
+            # )  # add current state in state_recorder for each day
 
-        return self.state, self.reward, self.terminal, {}
+        return self.state_norm, self.reward, self.terminal, {}
 
     def reset(self):
         # initiate state
-        self.state = self._initiate_state()
+        self.state, self.state_norm = self._initiate_state()
 
         self.asset_memory = [
             self.initial_amount 
             ]
 
         self.day = 0
-        self.data = self.df.loc[self.df["date"] == self.date_array[self.day], :]
+        self.data = self.stock_no_date_df.loc[self.stock_df["date"] == self.date_array[self.day], :]
+        self.data_norm = self.stock_norm_no_date_df.loc[self.stock_norm_df["date"] == self.date_array[self.day], :]
         self.cost = 0
         self.trades = 0
         self.terminal = False
         # self.iteration=self.iteration
         self.rewards_memory = []
-        self.actions_memory = []
+        # self.actions_memory = []
         self.date_memory = [self.date_array[self.day]] # initiate date to first day
 
         self.episode += 1
 
-        return self.state
+        return self.state_norm
 
     
     # New
     def _initiate_state(self):
         if self.initial:
             # for multiple stock
-            # stock1.open day1, open day2...., stock2.open day1, open day2....
-            # create an empty list to store the rows
-            rows_list = []
+            rows_list1 = []
 
-            # iterate over the rows and append them to the list
+            # stock1.open day1, open day2...., stock2.open day1, open day2....
             for index, row in self.data.iterrows():
-                rows_list.append(list(row))
-            state = (
+                rows_list1.append(list(row))
+            state1 = (
                 [self.initial_amount] # 1 million
-                + rows_list # length: 25 * stock_dim
+                + rows_list1 # length: 25 * stock_dim
                 + self.num_stock_shares # initial num of shares [share1, share2] # 5000
             )  
+
+            rows_list2 = []
+
+            # iterate over the rows and append them to the list
+            for index, row in self.data_norm.iterrows():
+                rows_list2.append(list(row))
+
+            # normalized state
+            state2 = (
+                [self.initial_amount / self.balance_scaling] # 1 million
+                + rows_list2 # length: 25 * stock_dim
+                + [shares // self.shares_scaling for shares in self.num_stock_shares] # initial num of shares [share1, share2] # 5000
+
+            )  
+
+
         return state1, state2
     
     # New
     def _update_state(self):
         # for multiple stock
         # create an empty list to store the rows
-        rows_list = []
+        rows_list1 = []
 
         # iterate over the rows and append them to the list
         for index, row in self.data.iterrows():
-            rows_list.append(list(row))
-            
-        state = (
-            [self.state[0]]
-            + rows_list # length: 25 * stock_dim
+            rows_list1.append(list(row))
+        state1 = (
+            [self.state[0]] 
+            + rows_list1 # length: 25 * stock_dim
             + list(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim  + 1)]) # current owned shares of all stocks
-        )
-        return state
+        )  
+
+        rows_list2 = []
+
+        # iterate over the rows and append them to the list
+        for index, row in self.data_norm.iterrows():
+            rows_list2.append(list(row))
+        state2 = (
+            [self.state[0] / self.balance_scaling] # 1 million
+            + rows_list2 # length: 25 * stock_dim
+            + [shares // self.shares_scaling for shares in self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim  + 1)]] # initial num of shares [share1, share2] # 5000
+        )  
+            
+        return state1, state2
     
     # # add save_state_memory to preserve state in the trading process
     # def save_state_memory(self):
@@ -382,23 +417,23 @@ class StockTradingEnv(gym.Env):
         )
         return df_account_value
 
-    def save_action_memory(self):
-        if len(self.df.tic.unique()) > 1:
-            # date and close price length must match actions length
-            date_list = self.date_memory[:-1]
-            df_date = pd.DataFrame(date_list)
-            df_date.columns = ["date"]
+    # def save_action_memory(self):
+    #     if len(self.df.tic.unique()) > 1:
+    #         # date and close price length must match actions length
+    #         date_list = self.date_memory[:-1]
+    #         df_date = pd.DataFrame(date_list)
+    #         df_date.columns = ["date"]
 
-            action_list = self.actions_memory
-            df_actions = pd.DataFrame(action_list)
-            df_actions.columns = self.data.tic.values
-            df_actions.index = df_date.date
-            # df_actions = pd.DataFrame({'date':date_list,'actions':action_list})
-        else:
-            date_list = self.date_memory[:-1]
-            action_list = self.actions_memory
-            df_actions = pd.DataFrame({"date": date_list, "actions": action_list})
-        return df_actions
+    #         action_list = self.actions_memory
+    #         df_actions = pd.DataFrame(action_list)
+    #         df_actions.columns = self.data.tic.values
+    #         df_actions.index = df_date.date
+    #         # df_actions = pd.DataFrame({'date':date_list,'actions':action_list})
+    #     else:
+    #         date_list = self.date_memory[:-1]
+    #         action_list = self.actions_memory
+    #         df_actions = pd.DataFrame({"date": date_list, "actions": action_list})
+    #     return df_actions
 
 
     
