@@ -10,19 +10,6 @@ import pandas as pd
 import gymnasium as gym
 from gymnasium import spaces
 
-# 默认的一些数据，用于归一化属性值
-MAX_ACCOUNT_BALANCE = 214748        # 最大的账户财产
-MAX_NUM_SHARES = 214748             # 最大的手数
-MAX_SHARE_PRICE = 5000              # 最大的单手价格
-MAX_VOLUME = 1000e6                 # 最大的成交量
-MAX_AMOUNT = 3e5                    # 最大的成交额
-MAX_OPEN_POSITIONS = 5              # 最大的持仓头寸
-MAX_STEPS = 500                     # 最大的交互次数
-MAX_DAY_CHANGE = 1                  # 最大的日期改变
-max_loss =-50000                    # 最大的损失
-max_predict_rate = 4                # 最大的预测率
-
-INITIAL_ACCOUNT_BALANCE = 1e6     # 初始的金钱
 
 
 class StockTradingEnv(gym.Env):
