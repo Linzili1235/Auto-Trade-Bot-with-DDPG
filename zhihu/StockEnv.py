@@ -24,7 +24,7 @@ class StockTradingEnv(gym.Env):
                  shares_scaling, #5000
                  buy_cost_pct=1e-3,
                  sell_cost_pct=1e-3,
-                 reward_scaling=80000, # 2 stock, 200 per average, each 100 buy per day, 2* 200*2*100                
+                 reward_scaling=None, # 2 stock, 200 per average, each 100 buy per day, 2* 200*2*100                
                  initial_amount=None,
                  initial=True,
                  print_verbosity=10):
@@ -50,6 +50,7 @@ class StockTradingEnv(gym.Env):
         self.balance_scaling = balance_scaling
         self.shares_scaling = shares_scaling
         self.reward_scaling = reward_scaling
+        self.retrn = None
 
 
         # data at current day
@@ -196,6 +197,8 @@ class StockTradingEnv(gym.Env):
             df_rewards = pd.DataFrame(self.rewards_memory)
             df_rewards.columns = ["account_rewards"]
             df_rewards["date"] = self.date_memory[:-1]
+
+
             if self.episode % self.print_verbosity == 0:
                 print(f"day: {self.day + 1}, episode: {self.episode}")
                 print(f"begin_total_asset: {self.asset_memory[0]:0.2f}")
@@ -247,7 +250,14 @@ class StockTradingEnv(gym.Env):
                 np.array(self.data.close_1.values.tolist()) # close price per stock
                 * np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)]) # hold share per stock
             )
+
+
             
+            be_share = np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)])
+
+
+
+
             # print("begin_total_asset:{}".format(begin_total_asset))
 
             argsort_actions = np.argsort(actions) # index of ascending value
@@ -265,7 +275,7 @@ class StockTradingEnv(gym.Env):
                 # print('take buy action: {}'.format(actions[index]))
                 actions[index] = self._buy_stock(index, actions[index])
 
-            self.actions_memory.append(actions)
+            # self.actions_memory.append(actions)
 
             # state: s -> s+1
             self.day += 1
@@ -282,14 +292,45 @@ class StockTradingEnv(gym.Env):
             self.date_memory.append(self.date_array[self.day])
             # TODO: rewards
             self.reward = end_total_asset - begin_total_asset
+            self.retrn = (end_total_asset - begin_total_asset) / begin_total_asset
             self.rewards_memory.append(self.reward)
-            if self.reward == 0: #add penalty for not entering the market
-                self.reward -= 5
+
+
+            # TEST THE OUTPUT
+            print('Date:', self.df.date.unique()[self.day])
+            print('Begin:', begin_total_asset)
+            print('Close:', self.data.close_1.values.tolist())
+            print('Shares before action:', be_share)
+            print('Action:', actions)
+            print('Shares after action:', np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)]))
+            print('End:', end_total_asset)
+            print('Reward:', self.reward)
+            print('----------------------------------')
+
             
             self.reward = self.reward * self.reward_scaling
+
+            if self.reward == 0: #add penalty for not entering the market
+                self.reward -= 0.5
+        
+            if self.retrn > 0.3: 
+                self.reward += 3
+            elif self.retrn > 0.2:
+                self.reward += 2
+            elif self.retrn > 0.1:
+                self.reward += 1
+
+            if self.retrn < -0.3: 
+                self.reward -= 3
+            elif self.retrn < -0.2:
+                self.reward -= 2
+            elif self.retrn < -0.1:
+                self.reward -= 1
+
             # self.state_memory.append(
             #     self.state
             # )  # add current state in state_recorder for each day
+
 
         return self.state_norm, self.reward, self.terminal, {}
 
@@ -325,7 +366,7 @@ class StockTradingEnv(gym.Env):
 
             # stock1.open day1, open day2...., stock2.open day1, open day2....
             for index, row in self.data.iterrows():
-                rows_list1.append(list(row))
+                rows_list1 += list(row)
             state1 = (
                 [self.initial_amount] # 1 million
                 + rows_list1 # length: 25 * stock_dim
@@ -336,7 +377,7 @@ class StockTradingEnv(gym.Env):
 
             # iterate over the rows and append them to the list
             for index, row in self.data_norm.iterrows():
-                rows_list2.append(list(row))
+                rows_list2 += list(row)
 
             # normalized state
             state2 = (
@@ -357,7 +398,7 @@ class StockTradingEnv(gym.Env):
 
         # iterate over the rows and append them to the list
         for index, row in self.data.iterrows():
-            rows_list1.append(list(row))
+            rows_list1 += list(row)
         state1 = (
             [self.state[0]] 
             + rows_list1 # length: 25 * stock_dim
@@ -368,7 +409,7 @@ class StockTradingEnv(gym.Env):
 
         # iterate over the rows and append them to the list
         for index, row in self.data_norm.iterrows():
-            rows_list2.append(list(row))
+            rows_list2 += list(row)
         state2 = (
             [self.state[0] / self.balance_scaling] # 1 million
             + rows_list2 # length: 25 * stock_dim
