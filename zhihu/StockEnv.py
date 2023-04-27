@@ -21,6 +21,7 @@ class StockTradingEnv(gym.Env):
                  stock_dim, 
                  hmax,
                  tic,
+                 save_path,
                  balance_scaling, #1m
                  shares_scaling, #5000
                  buy_cost_pct=1e-3,
@@ -98,8 +99,10 @@ class StockTradingEnv(gym.Env):
         # self.state_memory = []
         # date 
         self.date_memory = [self.date_array[self.day]] # initiate date to first day
+        
         self.shares = []
         self.tic = tic
+        self.save_path = save_path
 
         
     def seed(self, seed):
@@ -214,18 +217,18 @@ class StockTradingEnv(gym.Env):
 
                 # df_actions = self.save_action_memory()
                 # df_actions.to_csv(
-                #         "results/actions_{}.csv".format(
+                #         self.save_path + "actions_{}.csv".format(
                 #             self.episode               
                 #             )
                 #     )
                 df_total_value.to_csv(
-                        "results/account_value_{}.csv".format(
+                        self.save_path + "account_value_{}.csv".format(
                             self.episode
                         ),
                         index=False,
                     )
                 df_rewards.to_csv(
-                        "results/account_rewards_{}.csv".format(
+                        self.save_path + "account_rewards_{}.csv".format(
                             self.episode
                         ),
                         index=False,
@@ -237,7 +240,7 @@ class StockTradingEnv(gym.Env):
                 # displaying the title
                 plt.title("Current Asset Change by Day")
                 plt.savefig(
-                        "results/account_value_{}.png".format(
+                        self.save_path + "account_value_{}.png".format(
                     self.episode
                                             )
                     )
@@ -256,7 +259,7 @@ class StockTradingEnv(gym.Env):
                 ax.legend()
 
                 fig.savefig(
-                        "results/account_shares_{}.png".format(
+                        self.save_path + "account_shares_{}.png".format(
                     self.episode
                         )
                 )
