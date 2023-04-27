@@ -20,6 +20,7 @@ class StockTradingEnv(gym.Env):
                  df,
                  stock_dim, 
                  hmax,
+                 tic,
                  balance_scaling, #1m
                  shares_scaling, #5000
                  buy_cost_pct=1e-3,
@@ -97,6 +98,8 @@ class StockTradingEnv(gym.Env):
         # self.state_memory = []
         # date 
         self.date_memory = [self.date_array[self.day]] # initiate date to first day
+        self.shares = []
+        self.tic = tic
 
         
     def seed(self, seed):
@@ -228,12 +231,36 @@ class StockTradingEnv(gym.Env):
                         index=False,
                     )
                 plt.plot(self.asset_memory, "r")
+                plt.xlabel('Trade Days') 
+                plt.ylabel('Current Asset') 
+                
+                # displaying the title
+                plt.title("Current Asset Change by Day")
                 plt.savefig(
                         "results/account_value_{}.png".format(
                     self.episode
                                             )
                     )
+                
                 plt.close()
+                
+                fig, ax = plt.subplots()
+                df_shares = pd.DataFrame(self.shares, columns=self.tic)
+                for name in df_shares.columns:
+                    ax.plot(df_shares[name], label=name)
+
+                # Set the title, x-axis label, and legend
+                ax.set_title('Number of Shares Held Changes by Day')
+                ax.set_xlabel('Trade Days')
+                ax.set_ylabel('Number of Shares')
+                ax.legend()
+
+                fig.savefig(
+                        "results/account_shares_{}.png".format(
+                    self.episode
+                        )
+                )
+
 
 
             
@@ -253,7 +280,7 @@ class StockTradingEnv(gym.Env):
 
 
             
-            be_share = np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)])
+            # be_share = np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)])
 
 
 
@@ -284,9 +311,12 @@ class StockTradingEnv(gym.Env):
             
             self.state, self.state_norm = self._update_state()
 
+            share = np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)]) # hold share per stock
+            self.shares.append(share)
+
             end_total_asset = self.state[0] + sum( #cash amount, not include capital, initial_amount is only cash part of our initial asset
                 np.array(self.data.close_1.values.tolist()) # close price per stock
-                * np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)]) # hold share per stock
+                * share
             )
             self.asset_memory.append(end_total_asset)
             self.date_memory.append(self.date_array[self.day])
@@ -296,16 +326,17 @@ class StockTradingEnv(gym.Env):
             self.rewards_memory.append(self.reward)
 
 
-            # TEST THE OUTPUT
-            print('Date:', self.df.date.unique()[self.day])
-            print('Begin:', begin_total_asset)
-            print('Close:', self.data.close_1.values.tolist())
-            print('Shares before action:', be_share)
-            print('Action:', actions)
-            print('Shares after action:', np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)]))
-            print('End:', end_total_asset)
-            print('Reward:', self.reward)
-            print('----------------------------------')
+            # # TEST THE OUTPUT
+            # print('Date:', self.df.date.unique()[self.day])
+            # print('Begin:', begin_total_asset)
+            # print('Close:', self.data.close_1.values.tolist())
+            # print('Shares before action:', be_share)
+            # print('Action:', actions)
+            # print('Shares after action:', np.array(self.state[(25 * self.stock_dim + 1) : (26 * self.stock_dim + 1)]))
+            # print('End:', end_total_asset)
+            # print('Balance after action:', self.state[0])
+            # print('Reward:', self.reward)
+            # print('----------------------------------')
 
             
             self.reward = self.reward * self.reward_scaling
@@ -352,6 +383,7 @@ class StockTradingEnv(gym.Env):
         self.rewards_memory = []
         # self.actions_memory = []
         self.date_memory = [self.date_array[self.day]] # initiate date to first day
+        self.shares = []
 
         self.episode += 1
 
