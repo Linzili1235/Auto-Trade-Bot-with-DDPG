@@ -8,6 +8,8 @@ train_notebook.ipynb / test_notebook.ipynb:
     Part 2. Stock Environment -> StockEnv.py
 
     Part 3. DDPG Model -> model.py
+                        
+                       -> ReplayBuffer.py
 ```
 
 **Train Data:** GSUNH_2y_train.csv (a subset from train_data.csv)
