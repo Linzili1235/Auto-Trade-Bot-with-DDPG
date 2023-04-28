@@ -3,9 +3,9 @@ train_notebook.ipynb / test_notebook.ipynb:
 
     Part 1. Data Crawling -> yahoodownloader.py
     
-                          -> preprocessors.py
-
                           -> config_tickers.py
+    
+                          -> preprocessors.py                      
 
     Part 2. Stock Environment -> StockEnv.py
 
