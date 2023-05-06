@@ -1,4 +1,4 @@
-**Outline of This REPO:**
+**Outline of This Repo:**
 
 ```
 train_notebook.ipynb / test_notebook.ipynb:
