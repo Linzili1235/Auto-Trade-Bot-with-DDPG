@@ -15,7 +15,7 @@ train_notebook.ipynb / test_notebook.ipynb:
                         
                        -> ReplayBuffer.py
 ```
-<h1 align="center"> Deep Deterministic Policy Gradient for Automated Stock Trading </h1>
+<h2 align="center"> Deep Deterministic Policy Gradient for Automated Stock Trading </h2>
 
 <h3> 1. Introduction </h3>
 
