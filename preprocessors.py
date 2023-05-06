@@ -13,13 +13,9 @@ from yahoodownloader import YahooDownloader
 # check https://pypi.org/project/stockstats/ for different names
 INDICATORS = [
     "macd",
-    "boll_ub",
-    "boll_lb",
     "rsi_30",
     "cci_30",
-    "dx_30",
-    "close_30_sma",
-    "close_60_sma",
+    "dx_30"
 ]
 
 def load_dataset(*, file_name: str) -> pd.DataFrame:
