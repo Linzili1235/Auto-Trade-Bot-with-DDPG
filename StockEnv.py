@@ -233,12 +233,17 @@ class StockTradingEnv(gym.Env):
                         ),
                         index=False,
                     )
+                
+                # train or test
+                var = self.save_path.split('/')[1].capitalize()
+
+
                 plt.plot(self.asset_memory, "r")
-                plt.xlabel('Trade Days') 
-                plt.ylabel('Current Asset') 
+                plt.xlabel('Days (d)') 
+                plt.ylabel('Asset (million $)') 
                 
                 # displaying the title
-                plt.title("Current Asset Change by Day")
+                plt.title(var+": Current Asset Change by Trading Days")
                 plt.savefig(
                         self.save_path + "account_value_{}.png".format(
                     self.episode
@@ -253,8 +258,9 @@ class StockTradingEnv(gym.Env):
                     ax.plot(df_shares[name], label=name)
 
                 # Set the title, x-axis label, and legend
-                ax.set_title('Number of Shares Held Changes by Day')
-                ax.set_xlabel('Trade Days')
+                
+                ax.set_title(var+": Number of Shares Held Changes by Trading Days")
+                ax.set_xlabel('Days (d)')
                 ax.set_ylabel('Number of Shares')
                 ax.legend()
 
